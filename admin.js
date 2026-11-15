@@ -241,8 +241,8 @@ function renderEditor(post) {
     </div>
 
     <div class="editor-toolbar">
-      <button class="btn btn-ghost btn-sm" id="insert-img" type="button">插入图片</button>
-      <input type="file" id="f-img" accept="image/*" style="display:none" />
+      <button class="btn btn-ghost btn-sm" id="insert-img" type="button">插入图片（可多选）</button>
+      <input type="file" id="f-img" accept="image/*" multiple style="display:none" />
       <div class="spacer"></div>
       <select id="f-status" class="btn btn-ghost btn-sm" style="padding:6px 10px">
         <option value="draft" ${form.status === "draft" ? "selected" : ""}>存为草稿</option>
@@ -306,22 +306,34 @@ function renderEditor(post) {
   mdEl.oninput = refreshPreview;
   refreshPreview();
 
-  // 插入图片到正文光标处
+  // 插入图片到正文光标处（支持一次选多张，按选择顺序逐张上传并插入）
   const imgFile = document.getElementById("f-img");
   document.getElementById("insert-img").onclick = () => imgFile.click();
   imgFile.onchange = async () => {
-    const file = imgFile.files[0];
-    if (!file) return;
-    setMsg(msg, "图片上传中…");
-    try {
-      const url = await uploadImage(file);
-      const token = `\n![${file.name.replace(/\.[^.]+$/, "")}](${url})\n`;
-      const start = mdEl.selectionStart, end = mdEl.selectionEnd;
-      mdEl.value = mdEl.value.slice(0, start) + token + mdEl.value.slice(end);
-      mdEl.focus();
-      refreshPreview();
-      setMsg(msg, "");
-    } catch (e) { setMsg(msg, "图片插入失败：" + (e.message || "请重试"), "err"); }
+    const files = Array.from(imgFile.files || []);
+    if (!files.length) return;
+    // 若当前有选中文本，先删除选中内容，再在光标处插入
+    let caret = mdEl.selectionStart;
+    const selEnd = mdEl.selectionEnd;
+    if (selEnd > caret) mdEl.value = mdEl.value.slice(0, caret) + mdEl.value.slice(selEnd);
+    let inserted = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setMsg(msg, `图片上传中…（${i + 1}/${files.length}）${file.name}`);
+      try {
+        const url = await uploadImage(file);
+        const token = `\n![${file.name.replace(/\.[^.]+$/, "")}](${url})\n`;
+        mdEl.value = mdEl.value.slice(0, caret) + token + mdEl.value.slice(caret);
+        caret += token.length; // 下一张接在本张之后，保持选择顺序
+        inserted++;
+      } catch (e) {
+        setMsg(msg, `《${file.name}》上传失败：${e.message || "请重试"}`, "err");
+      }
+    }
+    mdEl.focus();
+    mdEl.setSelectionRange(caret, caret);
+    refreshPreview();
+    if (inserted) setMsg(msg, `已插入 ${inserted} 张图片`, "ok");
     imgFile.value = "";
   };
 
