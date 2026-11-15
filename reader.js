@@ -66,7 +66,7 @@ function renderList() {
 
   essayListEl.innerHTML = posts.map((p) => {
     const tags = (p.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
-    const cover = p.cover_image ? `<img class="essay-cover" src="${p.cover_image}" alt="" loading="lazy" />` : "";
+    const cover = p.cover_image ? `<img class="essay-cover" src="${p.cover_image}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : "";
     const cat = p.category ? `<span>${escapeHtml(p.category)}</span>` : "";
     const meta = [fmtDate(p.created_at), cat].filter(Boolean).join('<span class="dot">·</span>');
     return `
