@@ -96,10 +96,20 @@ async function uploadImage(file, token) {
     content: b64,
     branch: window.SITE.branch,
   };
-  await giteeFetch(
-    `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${path}`,
-    { method: "PUT", token, body }
-  );
+  const apiPath = `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${path}`;
+  // Gitee API：新建文件必须用 POST；更新已存在文件用 PUT 且必须带 sha。
+  // 图片文件名含时间戳几乎不会重复，但为稳妥先探测是否存在，再决定方法。
+  let sha = null;
+  try {
+    const existing = await giteeFetch(apiPath, { token });
+    if (existing && existing.sha) sha = existing.sha;
+  } catch (_) { /* 404 表示文件不存在，按新建处理 */ }
+  if (sha) {
+    body.sha = sha;
+    await giteeFetch(apiPath, { method: "PUT", token, body });
+  } else {
+    await giteeFetch(apiPath, { method: "POST", token, body });
+  }
   return `${window.RAW_BASE}/${path}`;
 }
 
