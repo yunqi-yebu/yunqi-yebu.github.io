@@ -283,7 +283,7 @@ function renderEditor(post) {
 
   // 封面预览
   function refreshCover() {
-    coverPreview.innerHTML = form.cover_image ? `<img src="${form.cover_image}" alt="封面预览" />` : "";
+    coverPreview.innerHTML = form.cover_image ? `<img src="${form.cover_image}" alt="封面预览" referrerpolicy="no-referrer" />` : "";
   }
   refreshCover();
   coverInput.onchange = async () => {
@@ -299,9 +299,10 @@ function renderEditor(post) {
 
   // 实时预览
   function refreshPreview() {
-    previewEl.innerHTML = (typeof marked !== "undefined" && marked.parse)
+    const html = (typeof marked !== "undefined" && marked.parse)
       ? marked.parse(mdEl.value)
       : mdEl.value.replace(/</g, "&lt;").replace(/\n/g, "<br>");
+    previewEl.innerHTML = window.protectImageHtml(html);
   }
   mdEl.oninput = refreshPreview;
   refreshPreview();
@@ -322,7 +323,8 @@ function renderEditor(post) {
       setMsg(msg, `图片上传中…（${i + 1}/${files.length}）${file.name}`);
       try {
         const url = await uploadImage(file);
-        const token = `\n![${file.name.replace(/\.[^.]+$/, "")}](${url})\n`;
+        const alt = file.name.replace(/\.[^.]+$/, "").replace(/[\[\]]/g, "");
+        const token = `\n![${alt}](${url})\n`;
         mdEl.value = mdEl.value.slice(0, caret) + token + mdEl.value.slice(caret);
         caret += token.length; // 下一张接在本张之后，保持选择顺序
         inserted++;
