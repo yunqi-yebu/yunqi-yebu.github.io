@@ -29,12 +29,14 @@ async function load() {
     }
 
     const tags = (p.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join(" ");
-    const cover = p.cover_image ? `<img class="post-cover" src="${p.cover_image}" alt="" />` : "";
+    const cover = p.cover_image ? `<img class="post-cover" src="${p.cover_image}" alt="" referrerpolicy="no-referrer" />` : "";
     const meta = [fmtDate(p.created_at), p.category ? escapeHtml(p.category) : ""].filter(Boolean).join(" · ");
 
-    const bodyHtml = typeof marked !== "undefined" && marked.parse
-      ? marked.parse(p.content || "")
-      : `<p>${(p.content || "").replace(/</g, "&lt;")}</p>`;
+    const bodyHtml = window.protectImageHtml(
+      typeof marked !== "undefined" && marked.parse
+        ? marked.parse(p.content || "")
+        : `<p>${(p.content || "").replace(/</g, "&lt;")}</p>`
+    );
 
     postEl.innerHTML = `
       <a class="post-back" href="index.html">← 随笔列表</a>
