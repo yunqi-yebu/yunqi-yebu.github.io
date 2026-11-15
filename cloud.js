@@ -84,8 +84,10 @@ async function savePosts(posts, token, sha) {
 
 // 上传图片，返回可公开访问的直链
 async function uploadImage(file, token) {
-  const ext = (file.name.split(".").pop() || "png").toLowerCase();
-  const safeExt = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext) ? ext : "png";
+  // file 可能是压缩后的 Blob（无 name 属性），需兜底；后台压缩输出为 JPEG，默认用 jpg
+  const rawName = file.name || "image.jpg";
+  const ext = (rawName.split(".").pop() || "jpg").toLowerCase();
+  const safeExt = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext) ? ext : "jpg";
   const fname = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${safeExt}`;
   const path = `${window.SITE.imageDir}/${fname}`;
   const b64 = await fileToBase64(file);
@@ -110,6 +112,16 @@ function fileToBase64(file) {
   });
 }
 
+// ===== 图片防盗链处理 =====
+// Gitee raw 直链对外站 Referer 有防盗链：从 GitHub Pages 加载图片时会被替换成 favicon。
+// 解决方案：给 HTML 中所有 <img> 补 referrerpolicy="no-referrer"，浏览器请求时不带 Referer。
+function protectImageHtml(html) {
+  return (html || "").replace(/<img\b([^>]*)>/gi, (full, attrs) => {
+    if (/\breferrerpolicy\s*=/i.test(attrs)) return full; // 已有则跳过
+    return `<img${attrs} referrerpolicy="no-referrer">`;
+  });
+}
+
 // 暴露到全局，供各页面调用
 window.Cloud = {
   getPosts,
@@ -119,3 +131,4 @@ window.Cloud = {
   savePosts,
   uploadImage,
 };
+window.protectImageHtml = protectImageHtml;
