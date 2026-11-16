@@ -14,6 +14,30 @@ function escapeHtml(s) {
   }[c]));
 }
 
+// ---------- 图片灯箱：点击正文图片放大查看，点击遮罩或按 Esc 关闭 ----------
+function setupLightbox() {
+  const body = postEl.querySelector(".post-body");
+  if (!body) return;
+  let box = document.querySelector(".lightbox");
+  if (!box) {
+    box = document.createElement("div");
+    box.className = "lightbox";
+    box.innerHTML = '<img alt="" referrerpolicy="no-referrer" />';
+    document.body.appendChild(box);
+    box.addEventListener("click", () => box.classList.remove("open"));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") box.classList.remove("open");
+    });
+  }
+  const bigImg = box.querySelector("img");
+  body.addEventListener("click", (e) => {
+    const img = e.target.closest("img");
+    if (!img || !img.src) return;
+    bigImg.src = img.src;
+    box.classList.add("open");
+  });
+}
+
 async function load() {
   const id = new URLSearchParams(location.search).get("id");
   if (!id) {
@@ -60,6 +84,7 @@ async function load() {
       if (Number(typo.indent) === 0) bodyEl.classList.add("no-indent");
     }
     if (window.markImageParagraphs) window.markImageParagraphs(postEl);
+    setupLightbox();
     document.title = `${p.title} · 云栖野步`;
   } catch (err) {
     console.error(err);
