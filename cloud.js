@@ -132,6 +132,32 @@ function protectImageHtml(html) {
   });
 }
 
+// ===== 段落规范化 =====
+// 随笔按中文习惯"一行一段"书写，但 Markdown 默认把单换行合并进同一段，
+// 导致首行缩进无法逐段生效。渲染前把普通文字行的单换行补成段落分隔，
+// 同时保留代码块、列表、引用、表格等块结构不被拆散。
+function normalizeParagraphs(md) {
+  const lines = String(md || "").split(/\r?\n/);
+  const out = [];
+  let inFence = false;
+  const isBlock = (s) => /^\s*(#{1,6}\s|>|[-*+]\s|\d+\.\s|\|)/.test(s);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (/^\s*```/.test(trimmed)) { inFence = !inFence; out.push(line); continue; }
+    out.push(line);
+    if (inFence) continue;
+    const next = lines[i + 1];
+    if (next === undefined) continue;
+    const nt = next.trim();
+    if (!trimmed || !nt) continue;                 // 已有空行，保持原样
+    if (/^!\[/.test(trimmed)) { out.push(""); continue; } // 图片独立成段
+    if (isBlock(trimmed) && isBlock(nt)) continue;  // 列表/表格连续行不拆
+    if (!isBlock(trimmed) && !isBlock(nt)) out.push(""); // 普通文字：一行一段
+  }
+  return out.join("\n");
+}
+
 // 暴露到全局，供各页面调用
 window.Cloud = {
   getPosts,
@@ -142,3 +168,44 @@ window.Cloud = {
   uploadImage,
 };
 window.protectImageHtml = protectImageHtml;
+window.normalizeParagraphs = normalizeParagraphs;
+
+// ===== 本机访问量 =====
+// 纯静态站没有后端，访问量用浏览器 localStorage 按文章在本机计数：
+// 每打开一次文章详情 +1；30 秒内重复打开同一篇不重复计数（避免刷新刷量）。
+const VIEWS_KEY = "yqyb_view_counts";
+const VIEWS_GAP_MS = 30 * 1000;
+
+function loadViewStore() {
+  try { return JSON.parse(localStorage.getItem(VIEWS_KEY) || "{}"); } catch (_) { return {}; }
+}
+function saveViewStore(s) {
+  try { localStorage.setItem(VIEWS_KEY, JSON.stringify(s)); } catch (_) {}
+}
+function getViewCount(id) {
+  if (!id) return 0;
+  const s = loadViewStore();
+  return (s[id] && s[id].count) || 0;
+}
+function bumpViewCount(id) {
+  if (!id) return 0;
+  const s = loadViewStore();
+  const now = Date.now();
+  const rec = s[id] || { count: 0, last: 0 };
+  if (now - (rec.last || 0) > VIEWS_GAP_MS) rec.count += 1;
+  rec.last = now;
+  s[id] = rec;
+  saveViewStore(s);
+  return rec.count;
+}
+
+// 给"含图片的段落"打标记，作为 CSS :has() 在旧浏览器不支持时的兜底
+function markImageParagraphs(container) {
+  if (!container) return;
+  container.querySelectorAll("p").forEach((p) => {
+    if (p.querySelector("img")) p.classList.add("has-img");
+  });
+}
+window.markImageParagraphs = markImageParagraphs;
+window.getViewCount = getViewCount;
+window.bumpViewCount = bumpViewCount;
