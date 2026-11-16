@@ -82,7 +82,7 @@ async function load() {
       <div class="post-body">${bodyHtml}</div>
       <section class="comments-section" id="comments-section">
         <iframe class="comments-frame" title="评论区" scrolling="no"
-          src="https://essay-blog-31967.app.workbuddy.host/?post=${encodeURIComponent(p.id)}&sharecode=ZWX7DJVAZU"></iframe>
+          src="https://essay-blog-31967.app.workbuddy.host/?post=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title)}&url=${encodeURIComponent(location.href.split("#")[0])}&sharecode=ZWX7DJVAZU"></iframe>
       </section>
     `;
     // 应用本篇的排版参数（字号/行距/首行缩进），无设置时保持默认
