@@ -45,6 +45,7 @@ window.addEventListener("message", (e) => {
 });
 
 async function load() {
+  const site = await Cloud.initChrome().catch(() => null); // 应用站点标题/副标题/页脚等设置
   const id = new URLSearchParams(location.search).get("id");
   if (!id) {
     postEl.innerHTML = '<div class="empty">缺少文章 ID。<a href="index.html">返回列表</a></div>';
@@ -75,11 +76,14 @@ async function load() {
     );
 
     postEl.innerHTML = `
-      <a class="post-back" href="index.html">← 随笔列表</a>
+      <a class="post-back" href="index.html">← 返回首页</a>
       <h1 class="post-title">${escapeHtml(p.title)}</h1>
       <div class="post-meta">${meta}${tags ? " &nbsp; " + tags : ""}<span class="meta-right">${viewBadge}</span></div>
       ${cover}
       <div class="post-body">${bodyHtml}</div>
+      <div class="post-end-nav">
+        <a class="post-home-btn" href="index.html">← 返回首页</a>
+      </div>
       <section class="comments-section" id="comments-section">
         <iframe class="comments-frame" title="评论区" scrolling="no"
           src="https://essay-blog-31967.app.workbuddy.host/?post=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title)}&url=${encodeURIComponent(location.href.split("#")[0])}&sharecode=ZWX7DJVAZU"></iframe>
@@ -95,7 +99,8 @@ async function load() {
     }
     if (window.markImageParagraphs) window.markImageParagraphs(postEl);
     setupLightbox();
-    document.title = `${p.title} · 云栖野步`;
+    const siteTitle = (site && site.title) || "云栖野步";
+    document.title = `${p.title} · ${siteTitle}`;
   } catch (err) {
     console.error(err);
     postEl.innerHTML = '<div class="empty">加载失败，请稍后重试。</div>';
