@@ -81,13 +81,13 @@ async function load() {
       <div class="post-meta">${meta}${tags ? " &nbsp; " + tags : ""}<span class="meta-right">${viewBadge}</span></div>
       ${cover}
       <div class="post-body">${bodyHtml}</div>
-      <div class="post-end-nav">
-        <a class="post-home-btn" href="index.html">← 返回首页</a>
-      </div>
       <section class="comments-section" id="comments-section">
         <iframe class="comments-frame" title="评论区" scrolling="no"
           src="https://essay-blog-31967.app.workbuddy.host/?post=${encodeURIComponent(p.id)}&title=${encodeURIComponent(p.title)}&url=${encodeURIComponent(location.href.split("#")[0])}&sharecode=ZWX7DJVAZU"></iframe>
       </section>
+      <div class="post-end-nav">
+        <a class="post-home-btn" href="index.html">← 返回首页</a>
+      </div>
     `;
     // 应用本篇的排版参数（字号/行距/首行缩进），无设置时保持默认
     const typo = p.typography || {};
