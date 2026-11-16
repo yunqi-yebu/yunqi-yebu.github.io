@@ -163,9 +163,9 @@ a:hover { text-decoration: underline; }
 /* 后台关闭缩进时生效 */
 .post-body.no-indent p, #preview.no-indent p { text-indent: 0; }
 /* 正文插图：居中、按原比例完整显示，上下留白与段落节奏一致 */
-/* 正文插图：桌面端缩小比例居中展示，与文字宽度协调；移动端恢复满宽 */
+/* 正文插图：桌面端按"正常尺寸"居中显示（不铺满、两侧留白），移动端自适应满宽 */
 .post-body img {
-  display: block; max-width: min(100%, 520px); height: auto;
+  display: block; width: auto; max-width: min(100%, 420px); height: auto;
   border-radius: 6px; margin: 1.6em auto; background: var(--paper-2);
   cursor: zoom-in; box-shadow: 0 2px 14px rgba(43, 41, 38, 0.08);
   transition: transform 0.25s ease;
