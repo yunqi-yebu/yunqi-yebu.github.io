@@ -7,9 +7,11 @@ let allPosts = [];
 let activeCategory = null;
 let activeTag = null;
 
-// 支持通过 URL 参数 ?cat=分类 直接进入某分类（如 index.html?cat=运动）
+// 支持通过 URL 参数直接进入某分类/标签（如 index.html?cat=运动、index.html?tag=随笔）
 const urlCat = new URLSearchParams(location.search).get("cat");
 if (urlCat) activeCategory = urlCat;
+const urlTag = new URLSearchParams(location.search).get("tag");
+if (urlTag) activeTag = urlTag;
 
 function fmtDate(iso) {
   if (!iso) return "";
