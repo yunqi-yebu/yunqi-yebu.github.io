@@ -14,10 +14,8 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// ---------- 图片灯箱：点击正文图片放大查看，点击遮罩或按 Esc 关闭 ----------
+// ---------- 图片灯箱：点击封面或正文图片放大查看，点击遮罩或按 Esc 关闭 ----------
 function setupLightbox() {
-  const body = postEl.querySelector(".post-body");
-  if (!body) return;
   let box = document.querySelector(".lightbox");
   if (!box) {
     box = document.createElement("div");
@@ -30,8 +28,9 @@ function setupLightbox() {
     });
   }
   const bigImg = box.querySelector("img");
-  body.addEventListener("click", (e) => {
-    const img = e.target.closest("img");
+  postEl.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return; // 不拦截链接
+    const img = e.target.closest("img.post-cover, .post-body img");
     if (!img || !img.src) return;
     bigImg.src = img.src;
     box.classList.add("open");
