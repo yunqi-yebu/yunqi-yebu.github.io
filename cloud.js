@@ -28,18 +28,45 @@ async function giteeFetch(path, { method = "GET", token, body } = {}) {
   return json;
 }
 
-// 公开读取文章列表（无需令牌）：返回数组
-async function getPosts() {
+// 首选：与站点同源的 data/*.json（发布通道会把 Gitee 数据镜像到 Pages 仓库，同源读取无跨域/限流问题）
+async function fetchSameOrigin(path) {
+  const res = await fetch(`${path}?t=${Date.now()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`同源读取失败(${res.status})`);
+  let text = await res.text();
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // 去 BOM
+  return text;
+}
+
+// 匿名读取仓库文本文件：先走 contents API，被 Gitee 限流(403)时回退 raw 直链。
+// 注意：两者均无 CORS 头，仅供无跨域限制的场景使用；浏览器端读取请走 fetchSameOrigin。
+async function fetchPublicFile(path) {
   try {
     const json = await giteeFetch(
-      `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.dataPath}`
+      `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${path}`
     );
-    const content = json.content ? b64ToUtf8(json.content) : "[]";
-    return JSON.parse(content) || [];
+    if (json && json.content) return b64ToUtf8(json.content);
   } catch (e) {
-    console.warn("读取文章失败：", e);
-    return [];
+    console.warn("contents API 读取失败，尝试 raw 直链：", e && e.message);
   }
+  const rawUrl = `https://gitee.com/${window.SITE.owner}/${window.SITE.repo}/raw/${window.SITE.branch}/${path}?t=${Date.now()}`;
+  const res = await fetch(rawUrl, { referrerPolicy: "no-referrer" });
+  if (!res.ok) throw new Error(`raw 直链读取失败(${res.status})`);
+  return await res.text();
+}
+
+// 公开读取文章列表（无需令牌）：返回数组；彻底失败时抛错（调用方展示"加载失败"而非误报"没有文章"）
+async function getPosts() {
+  try {
+    const text = await fetchSameOrigin(window.SITE.dataPath);
+    const data = JSON.parse(text);
+    if (Array.isArray(data)) return data;
+  } catch (e) {
+    console.warn("同源文章数据不可用，回退 Gitee：", e && e.message);
+  }
+  const text = await fetchPublicFile(window.SITE.dataPath);
+  const data = JSON.parse(text.replace(/^\uFEFF/, ""));
+  if (!Array.isArray(data)) throw new Error("文章数据格式异常");
+  return data;
 }
 
 // 按 id 取单篇
@@ -247,12 +274,19 @@ function normalizeSite(raw) {
 async function getSite() {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(SITE_CACHE_KEY) || "null"); } catch (_) {}
+  // 同源镜像优先（发布通道保持同步），失败再走 Gitee，最后回退缓存/默认
   try {
-    const json = await giteeFetch(
-      `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.sitePath}`
-    );
-    const data = json.content ? JSON.parse(b64ToUtf8(json.content)) : null;
-    if (data && typeof data === "object") {
+    const text = await fetchSameOrigin(window.SITE.sitePath);
+    const data = text ? JSON.parse(text) : null;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+      return normalizeSite(data);
+    }
+  } catch (_) {}
+  try {
+    const text = await fetchPublicFile(window.SITE.sitePath);
+    const data = text ? JSON.parse(text.replace(/^\uFEFF/, "")) : null;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
       try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
       return normalizeSite(data);
     }
