@@ -193,7 +193,7 @@ const ImageEditor = (() => {
   let origBlob = null, origName = "image.jpg";
   let sel = null, selStart = null, cropMode = false, busy = false;
   let cfg = null;                // {upload, token, onDone}
-  let mergeImgs = [], mergeLayout = "h";
+  let mergeImgs = [], mergeLayout = "h", mergeGap = 14;
 
   function ensureDom() {
     if (ov) return;
@@ -349,7 +349,7 @@ const ImageEditor = (() => {
     renderTabs("merge");
     drawMerge();
     renderToolsMerge();
-    setHint("多图将合并为一张图片上传；可切换横排 / 竖排。");
+    setHint("多张图片将合并为一组拼接展示；可切换排列方向、交换顺序、调整间距，实时预览。");
   }
 
   function renderTabs(active) {
@@ -463,7 +463,7 @@ const ImageEditor = (() => {
     const stage = ov.querySelector("#ie-stage");
     stage.innerHTML = "";
     if (src) { drawView(); overlay.style.pointerEvents = "none"; return; }
-    const gap = 14;
+    const gap = mergeGap;
     let W, H;
     if (mergeLayout === "h") {
       H = Math.min(...mergeImgs.map((m) => m.img.height), 1100);
@@ -500,9 +500,16 @@ const ImageEditor = (() => {
       <button type="button" class="imged-btn ${mergeLayout === "h" ? "pri" : ""}" id="t-h">左右并排</button>
       <button type="button" class="imged-btn ${mergeLayout === "v" ? "pri" : ""}" id="t-v">上下拼接</button>
       <span class="imged-sep"></span>
-      <span class="imged-hint">共 ${mergeImgs.length} 张，按选择顺序合并</span>`;
+      <button type="button" class="imged-btn" id="t-swap" title="反转图片顺序">⇄ 交换顺序</button>
+      <span class="imged-sep"></span>
+      <label class="imged-lab">间距 <input type="range" id="t-gap" min="0" max="40" value="${mergeGap}" /> <span id="t-gapv">${mergeGap}px</span></label>
+      <span class="imged-sep"></span>
+      <span class="imged-hint">共 ${mergeImgs.length} 张，可调整排列后合并为一张</span>`;
     t.querySelector("#t-h").onclick = () => { mergeLayout = "h"; src = null; drawMerge(); renderToolsMerge(); };
     t.querySelector("#t-v").onclick = () => { mergeLayout = "v"; src = null; drawMerge(); renderToolsMerge(); };
+    t.querySelector("#t-swap").onclick = () => { mergeImgs.reverse(); src = null; drawMerge(); renderToolsMerge(); };
+    t.querySelector("#t-gap").oninput = (e) => { t.querySelector("#t-gapv").textContent = e.target.value + "px"; };
+    t.querySelector("#t-gap").onchange = (e) => { mergeGap = Number(e.target.value); src = null; drawMerge(); };
   }
 
   // ---- 导出上传 ----
