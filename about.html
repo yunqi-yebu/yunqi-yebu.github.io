@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>关于我 · 云栖野步</title>
-  <link rel="stylesheet" href="style.css?v=20261116b" />
+  <link rel="stylesheet" href="style.css?v=20261116c" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="config.js?v=20261116c"></script>
+  <script src="cloud.js?v=20261116c"></script>
 </head>
 <body>
   <div class="layout">
@@ -28,16 +31,45 @@
     <main class="main">
       <div class="container">
         <article class="post about">
-          <h1 class="post-title">关于我</h1>
-          <div class="post-body">
+          <a class="post-back" href="index.html">← 返回首页</a>
+          <h1 class="post-title" id="about-title">关于我</h1>
+          <div class="about-note" id="about-note" style="display:none"></div>
+          <div class="post-body" id="about-body">
             <p>这里写一段关于你的介绍……</p>
-            <p>可以介绍你的兴趣、写作方向，或者任何想对读者说的话。直接编辑 <code>about.html</code> 中这一段文字即可，无需后台。</p>
+            <p>内容可在后台「⚙ 站点设置 → 关于我」中编辑并保存。</p>
           </div>
         </article>
       </div>
 
-      <footer class="site-footer">© 云栖野步 · 由 Gitee 免费托管</footer>
+      <footer class="site-footer" data-site-footer>© 云栖野步 · 由 Gitee 免费托管</footer>
     </main>
   </div>
+
+  <script>
+    // 关于我：内容来自站点设置（后台可编辑），Markdown 渲染，支持图片
+    async function renderAbout() {
+      const site = await Cloud.initChrome();
+      const about = site.about || {};
+      const titleEl = document.getElementById("about-title");
+      const noteEl = document.getElementById("about-note");
+      const bodyEl = document.getElementById("about-body");
+      if (about.title) {
+        titleEl.textContent = about.title;
+        document.title = about.title + " · " + site.title;
+      }
+      if (about.note && String(about.note).trim()) {
+        noteEl.textContent = about.note;
+        noteEl.style.display = "block";
+      }
+      const md = String(about.content || "");
+      const raw = window.normalizeParagraphs ? window.normalizeParagraphs(md) : md;
+      const html = (typeof marked !== "undefined" && marked.parse)
+        ? marked.parse(raw)
+        : "<p>" + raw.replace(/</g, "&lt;").replace(/\n/g, "<br>") + "</p>";
+      bodyEl.innerHTML = window.protectImageHtml(html);
+      if (window.markImageParagraphs) window.markImageParagraphs(bodyEl);
+    }
+    renderAbout();
+  </script>
 </body>
 </html>
