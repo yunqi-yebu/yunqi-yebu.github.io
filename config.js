@@ -5,6 +5,7 @@ window.SITE = {
   repo: "my-blog",
   branch: "master",
   dataPath: "data/posts.json", // 文章数据文件
+  sitePath: "data/site.json",  // 站点设置（标题/副标题/侧边栏导航/关于我）
   imageDir: "data/images",     // 图片存放目录
 };
 
