@@ -106,3 +106,6 @@ async function load() {
 }
 
 load();
+
+// 站点设置（标题/副标题/侧边栏导航/页脚）由后台维护，页面加载后套用
+if (window.Cloud && Cloud.initChrome) Cloud.initChrome();
