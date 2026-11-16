@@ -210,6 +210,7 @@ function renderEditor(post) {
     cover_image: post?.cover_image || "",
     content: post?.content || "",
     status: post?.status || "draft",
+    typography: post?.typography || { fontSize: 17, lineHeight: 1.95, indent: 2 },
   };
 
   root.innerHTML = `
@@ -231,6 +232,25 @@ function renderEditor(post) {
       <div class="field">
         <label>标签（逗号分隔）</label>
         <input type="text" id="f-tags" value="${escapeHtml(form.tags)}" placeholder="如：旅行, 随笔" />
+      </div>
+      <div class="field">
+        <label>正文字号</label>
+        <select id="f-fontsize">
+          ${[16, 17, 18, 19, 20].map((v) => `<option value="${v}" ${form.typography.fontSize === v ? "selected" : ""}>${v === 17 ? v + "px（默认）" : v + "px"}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label>正文行距</label>
+        <select id="f-lineheight">
+          ${[1.7, 1.85, 1.95, 2.1].map((v) => `<option value="${v}" ${Number(form.typography.lineHeight) === v ? "selected" : ""}>${v === 1.95 ? v + "（默认）" : String(v)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label>首行缩进</label>
+        <select id="f-indent">
+          <option value="2" ${Number(form.typography.indent) !== 0 ? "selected" : ""}>缩进 2 字符（默认）</option>
+          <option value="0" ${Number(form.typography.indent) === 0 ? "selected" : ""}>不缩进</option>
+        </select>
       </div>
     </div>
 
@@ -274,6 +294,9 @@ function renderEditor(post) {
   const coverInput = document.getElementById("f-cover");
   const coverPreview = document.getElementById("cover-preview");
   const msg = document.getElementById("editor-msg");
+  const fsEl = document.getElementById("f-fontsize");
+  const lhEl = document.getElementById("f-lineheight");
+  const indEl = document.getElementById("f-indent");
 
   // 分类候选
   try {
@@ -298,12 +321,23 @@ function renderEditor(post) {
   };
 
   // 实时预览
-  function refreshPreview() {
-    const html = (typeof marked !== "undefined" && marked.parse)
-      ? marked.parse(mdEl.value)
-      : mdEl.value.replace(/</g, "&lt;").replace(/\n/g, "<br>");
-    previewEl.innerHTML = window.protectImageHtml(html);
+  function applyTypoToPreview() {
+    // 让预览区按当前排版设置显示，所见即所得
+    previewEl.style.fontSize = fsEl.value + "px";
+    previewEl.style.lineHeight = String(lhEl.value);
+    previewEl.classList.toggle("no-indent", Number(indEl.value) === 0);
   }
+  function refreshPreview() {
+    const raw = window.normalizeParagraphs
+      ? window.normalizeParagraphs(mdEl.value) : mdEl.value;
+    const html = (typeof marked !== "undefined" && marked.parse)
+      ? marked.parse(raw)
+      : raw.replace(/</g, "&lt;").replace(/\n/g, "<br>");
+    previewEl.innerHTML = window.protectImageHtml(html);
+    if (window.markImageParagraphs) window.markImageParagraphs(previewEl);
+    applyTypoToPreview();
+  }
+  [fsEl, lhEl, indEl].forEach((el) => { el.onchange = applyTypoToPreview; });
   mdEl.oninput = refreshPreview;
   refreshPreview();
 
@@ -356,6 +390,11 @@ function renderEditor(post) {
       category: catEl.value.trim() || "未分类",
       tags: parseTags(tagsEl.value),
       status: statusEl.value,
+      typography: {
+        fontSize: Number(fsEl.value) || 17,
+        lineHeight: Number(lhEl.value) || 1.95,
+        indent: Number(indEl.value) === 0 ? 0 : 2,
+      },
       updated_at: now,
     };
 
