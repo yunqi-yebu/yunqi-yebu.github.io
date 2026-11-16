@@ -209,3 +209,146 @@ function markImageParagraphs(container) {
 window.markImageParagraphs = markImageParagraphs;
 window.getViewCount = getViewCount;
 window.bumpViewCount = bumpViewCount;
+
+// ===== 站点设置（标题/副标题/侧边栏导航/关于我）=====
+// 存于仓库 data/site.json，与文章数据同一套读写方式；后台可编辑，前台读取后渲染。
+// 文件不存在时用 DEFAULT_SITE（与页面内置的默认文案一致），保证站点始终可用。
+const DEFAULT_SITE = {
+  title: "云栖野步",
+  subtitle: "做 知 识 传 递 的 催 化 剂",
+  footer: "© 云栖野步 · 由 Gitee 免费托管",
+  nav: [
+    { label: "首页", href: "index.html" },
+    { label: "运动", href: "index.html?cat=运动" },
+    { label: "随笔", href: "index.html?cat=随笔" },
+    { label: "关于我", href: "about.html" },
+  ],
+  subNav: [{ label: "后台写作 →", href: "admin.html" }],
+  about: {
+    title: "关于我",
+    note: "",
+    content: "这里写一段关于你的介绍……\n\n可以介绍你的兴趣、写作方向，或者任何想对读者说的话。",
+  },
+};
+const SITE_CACHE_KEY = "yqyb_site_cache";
+
+function normalizeSite(raw) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_SITE));
+  const s = Object.assign(base, raw || {});
+  s.nav = Array.isArray(s.nav) ? s.nav : base.nav;
+  s.subNav = Array.isArray(s.subNav) ? s.subNav : base.subNav;
+  s.about = Object.assign({}, DEFAULT_SITE.about, s.about || {});
+  s.nav = s.nav.filter((it) => it && (it.label || it.href));
+  s.subNav = s.subNav.filter((it) => it && (it.label || it.href));
+  return s;
+}
+
+// 公开读取站点设置（无需令牌）；失败时退回本机缓存，再退回默认值
+async function getSite() {
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(SITE_CACHE_KEY) || "null"); } catch (_) {}
+  try {
+    const json = await giteeFetch(
+      `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.sitePath}`
+    );
+    const data = json.content ? JSON.parse(b64ToUtf8(json.content)) : null;
+    if (data && typeof data === "object") {
+      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+      return normalizeSite(data);
+    }
+  } catch (_) { /* 文件不存在属正常情况 */ }
+  return normalizeSite(cached || DEFAULT_SITE);
+}
+
+// 读取站点设置（含 sha，用于写入）
+async function loadSiteForWrite(token) {
+  try {
+    const json = await giteeFetch(
+      `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.sitePath}`,
+      { token }
+    );
+    const content = json.content ? b64ToUtf8(json.content) : "{}";
+    return { site: normalizeSite(JSON.parse(content) || {}), sha: json.sha || null };
+  } catch (e) {
+    return { site: normalizeSite({}), sha: null }; // 文件不存在则新建
+  }
+}
+
+// 保存站点设置（已存在则 PUT+sha，不存在则 POST 新建）
+async function saveSite(site, token, sha) {
+  const path = `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.sitePath}`;
+  const body = {
+    message: "更新站点设置 · 云栖野步",
+    content: utf8ToB64(JSON.stringify(site, null, 2)),
+    branch: window.SITE.branch,
+  };
+  let useSha = sha;
+  if (!useSha) {
+    try {
+      const existing = await giteeFetch(path, { token });
+      if (existing && existing.sha) useSha = existing.sha;
+    } catch (_) {}
+  }
+  if (useSha) {
+    body.sha = useSha;
+    return giteeFetch(path, { method: "PUT", token, body });
+  }
+  return giteeFetch(path, { method: "POST", token, body });
+}
+
+function siteEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+// 判断导航项是否当前页（用于高亮），支持 index.html?cat=xxx 这类带参数的链接
+function navIsActive(href) {
+  const [path, qs] = String(href || "").split("?");
+  const curPath = location.pathname.split("/").pop() || "index.html";
+  const p = path || "index.html";
+  if (p !== curPath) return false;
+  const target = new URLSearchParams(qs || "");
+  const cur = new URLSearchParams(location.search);
+  if (![...target.keys()].length) return cur.toString() === "";
+  for (const [k, v] of target) if (cur.get(k) !== v) return false;
+  return true;
+}
+function renderNavList(container, items) {
+  if (!container || !Array.isArray(items)) return;
+  container.innerHTML = items.map((it) => {
+    const active = navIsActive(it.href) ? ' class="active"' : "";
+    return `<a href="${siteEsc(it.href || "#")}"${active}>${siteEsc(it.label || "")}</a>`;
+  }).join("");
+}
+
+// 把站点设置应用到当前页面：标题、副标题、侧边栏导航、页脚、浏览器标题
+function applySiteChrome(site) {
+  const s = normalizeSite(site);
+  document.querySelectorAll(".site-title").forEach((el) => { el.textContent = s.title; });
+  document.querySelectorAll(".site-sub").forEach((el) => { el.textContent = s.subtitle; });
+  document.querySelectorAll("[data-site-footer]").forEach((el) => { el.textContent = s.footer; });
+  renderNavList(document.querySelector(".site-nav:not(.site-nav-sub)"), s.nav);
+  renderNavList(document.querySelector(".site-nav-sub"), s.subNav);
+  if (document.title && document.title.indexOf("云栖野步") >= 0) {
+    document.title = document.title.split("云栖野步").join(s.title);
+  }
+  window.__site = s;
+  return s;
+}
+
+// 各页面启动时调用：先套用本机缓存（无闪烁），再拉取最新设置
+function initChrome() {
+  let cached = null;
+  try { cached = JSON.parse(localStorage.getItem(SITE_CACHE_KEY) || "null"); } catch (_) {}
+  if (cached) applySiteChrome(cached);
+  return getSite().then((s) => {
+    applySiteChrome(s);
+    if (typeof window.onSiteLoaded === "function") window.onSiteLoaded(s);
+    return s;
+  });
+}
+
+Object.assign(window.Cloud, {
+  getSite, loadSiteForWrite, saveSite, applySiteChrome, initChrome,
+});
+window.DEFAULT_SITE = DEFAULT_SITE;
