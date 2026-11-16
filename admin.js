@@ -134,7 +134,7 @@ async function renderApp() {
   };
   document.getElementById("new-btn").onclick = () => renderEditor(null);
   document.getElementById("cmt-btn").onclick = () =>
-    window.open("https://essay-blog-31967.app.workbuddy.host/?admin=1", "_blank");
+    window.open("https://essay-blog-31967.app.workbuddy.host/?admin=1&sharecode=ZWX7DJVAZU", "_blank");
 
   await loadMyPosts();
 }
