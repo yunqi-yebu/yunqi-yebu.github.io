@@ -122,6 +122,7 @@ async function renderApp() {
     <div style="margin-bottom:20px">
       <button class="btn" id="new-btn">＋ 写新随笔</button>
       <a class="btn btn-ghost" href="index.html" target="_blank" style="margin-left:8px">查看前台 →</a>
+      <button class="btn btn-ghost" id="site-btn" style="margin-left:8px">⚙ 站点设置</button>
       <button class="btn btn-ghost" id="cmt-btn" style="margin-left:8px">💬 评论管理</button>
     </div>
     <div class="posts-manage" id="posts-manage"><div class="empty">加载中…</div></div>`;
@@ -133,6 +134,7 @@ async function renderApp() {
     renderAuth();
   };
   document.getElementById("new-btn").onclick = () => renderEditor(null);
+  document.getElementById("site-btn").onclick = () => renderSiteSettings();
   document.getElementById("cmt-btn").onclick = () =>
     window.open("https://essay-blog-31967.app.workbuddy.host/?admin=1&sharecode=ZWX7DJVAZU", "_blank");
 
@@ -201,6 +203,177 @@ async function persist() {
   const r = await Cloud.savePosts(state.posts, TOKEN, state.sha);
   if (r && r.content && r.content.sha) state.sha = r.content.sha;
   return r;
+}
+
+// ---------------- 站点设置（标题/副标题/侧边栏导航/关于我） ----------------
+// 数据存于仓库 data/site.json，与文章数据同一套读写方式；前台各页读取后渲染。
+function navRowHtml(items) {
+  if (!items.length) return '<div class="nav-empty">还没有栏目，点下方「＋ 新增栏目」添加</div>';
+  return items.map((it, i) => `
+    <div class="nav-row" data-i="${i}">
+      <input class="nav-label" value="${escapeHtml(it.label || "")}" placeholder="栏目名称" />
+      <input class="nav-href" value="${escapeHtml(it.href || "")}" placeholder="链接，如 index.html?cat=运动" />
+      <button type="button" class="mini-btn" data-act="up" title="上移" ${i === 0 ? "disabled" : ""}>↑</button>
+      <button type="button" class="mini-btn" data-act="down" title="下移" ${i === items.length - 1 ? "disabled" : ""}>↓</button>
+      <button type="button" class="mini-btn danger" data-act="del" title="删除">✕</button>
+    </div>`).join("");
+}
+
+// 绑定导航编辑器：输入即时写回数组，排序/删除后重绘
+function mountNavEditor(container, list, redraw) {
+  container.innerHTML = navRowHtml(list);
+  container.querySelectorAll(".nav-row").forEach((row) => {
+    const i = Number(row.dataset.i);
+    row.querySelector(".nav-label").oninput = (e) => { list[i].label = e.target.value; };
+    row.querySelector(".nav-href").oninput = (e) => { list[i].href = e.target.value; };
+    row.querySelectorAll(".mini-btn").forEach((btn) => {
+      btn.onclick = () => {
+        const act = btn.dataset.act;
+        if (act === "del") {
+          list.splice(i, 1);
+        } else if (act === "up" && i > 0) {
+          [list[i - 1], list[i]] = [list[i], list[i - 1]];
+        } else if (act === "down" && i < list.length - 1) {
+          [list[i + 1], list[i]] = [list[i], list[i + 1]];
+        }
+        redraw();
+      };
+    });
+  });
+}
+
+async function renderSiteSettings() {
+  root.innerHTML = `
+    <div class="admin-top">
+      <h1>站 点 设 置</h1>
+      <button class="btn btn-ghost btn-sm" id="back-btn">← 返回列表</button>
+    </div>
+    <div class="empty">加载中…</div>`;
+  document.getElementById("back-btn").onclick = () => renderApp();
+
+  let site, sha;
+  try {
+    const data = await Cloud.loadSiteForWrite(TOKEN);
+    site = data.site;
+    sha = data.sha;
+  } catch (e) {
+    root.querySelector(".empty").textContent = "加载失败：" + (e.message || "未知错误");
+    return;
+  }
+
+  const nav = (site.nav || []).map((x) => ({ label: x.label || "", href: x.href || "" }));
+  const subNav = (site.subNav || []).map((x) => ({ label: x.label || "", href: x.href || "" }));
+
+  root.innerHTML = `
+    <div class="admin-top">
+      <h1>站 点 设 置</h1>
+      <button class="btn btn-ghost btn-sm" id="back-btn">← 返回列表</button>
+    </div>
+
+    <div class="site-settings">
+      <section class="set-card">
+        <h3>站 点 名 称</h3>
+        <div class="field full">
+          <label>标题</label>
+          <input type="text" id="s-title" maxlength="30" value="${escapeHtml(site.title)}" placeholder="如：云栖野步" />
+        </div>
+        <div class="field full">
+          <label>副标题</label>
+          <input type="text" id="s-sub" maxlength="60" value="${escapeHtml(site.subtitle)}" placeholder="如：做 知 识 传 递 的 催 化 剂" />
+        </div>
+        <div class="field full">
+          <label>页脚文字</label>
+          <input type="text" id="s-footer" maxlength="80" value="${escapeHtml(site.footer)}" />
+        </div>
+      </section>
+
+      <section class="set-card">
+        <h3>侧 边 栏 导 航</h3>
+        <div class="set-note">可重命名、修改链接、上下调整顺序；链接支持 index.html?cat=分类 形式。</div>
+        <div class="nav-editor" id="nav-editor"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="nav-add" style="margin-top:12px">＋ 新增栏目</button>
+      </section>
+
+      <section class="set-card">
+        <h3>次 级 导 航</h3>
+        <div class="set-note">位于主导航下方的灰色小字区域（如「后台写作」入口）。</div>
+        <div class="nav-editor" id="subnav-editor"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="subnav-add" style="margin-top:12px">＋ 新增栏目</button>
+      </section>
+
+      <section class="set-card">
+        <h3>关 于 我</h3>
+        <div class="field full">
+          <label>页面标题</label>
+          <input type="text" id="a-title" maxlength="40" value="${escapeHtml(site.about.title)}" />
+        </div>
+        <div class="field full">
+          <label>一句话说明（可选，显示在标题下方）</label>
+          <input type="text" id="a-note" maxlength="100" value="${escapeHtml(site.about.note || "")}" placeholder="如：一个喜欢跑步与阅读的人" />
+        </div>
+        <div class="field full">
+          <label>正文（支持 Markdown：空行分段、# 标题、**加粗**、![图](地址)）</label>
+          <textarea id="a-content" class="set-textarea">${escapeHtml(site.about.content || "")}</textarea>
+        </div>
+      </section>
+
+      <div class="set-actions">
+        <button class="btn" id="save-site">保 存 设 置</button>
+        <span class="set-note">保存后前台刷新即可生效</span>
+      </div>
+      <div class="form-msg" id="site-msg"></div>
+    </div>`;
+
+  document.getElementById("back-btn").onclick = () => renderApp();
+
+  const drawNav = () => mountNavEditor(document.getElementById("nav-editor"), nav, drawNav);
+  const drawSub = () => mountNavEditor(document.getElementById("subnav-editor"), subNav, drawSub);
+  drawNav();
+  drawSub();
+
+  const addRow = (list, redraw, boxId) => {
+    list.push({ label: "", href: "" });
+    redraw();
+    const rows = document.getElementById(boxId).querySelectorAll(".nav-row");
+    const last = rows[rows.length - 1];
+    if (last) last.querySelector(".nav-label").focus();
+  };
+  document.getElementById("nav-add").onclick = () => addRow(nav, drawNav, "nav-editor");
+  document.getElementById("subnav-add").onclick = () => addRow(subNav, drawSub, "subnav-editor");
+
+  document.getElementById("save-site").onclick = async () => {
+    const msg = document.getElementById("site-msg");
+    const btn = document.getElementById("save-site");
+    // 过滤空行：名称与链接都为空的行不保存
+    const clean = (arr) => arr
+      .filter((x) => (x.label || "").trim() || (x.href || "").trim())
+      .map((x) => ({ label: (x.label || "").trim() || "未命名", href: (x.href || "").trim() || "index.html" }));
+    const payload = {
+      ...site,
+      title: document.getElementById("s-title").value.trim() || "云栖野步",
+      subtitle: document.getElementById("s-sub").value,
+      footer: document.getElementById("s-footer").value,
+      nav: clean(nav),
+      subNav: clean(subNav),
+      about: {
+        title: document.getElementById("a-title").value.trim() || "关于我",
+        note: document.getElementById("a-note").value,
+        content: document.getElementById("a-content").value,
+      },
+    };
+    btn.disabled = true;
+    setMsg(msg, "保存中…");
+    try {
+      const r = await Cloud.saveSite(payload, TOKEN, sha);
+      if (r && r.content && r.content.sha) sha = r.content.sha;
+      try { localStorage.setItem("yqyb_site_cache", JSON.stringify(payload)); } catch (_) {}
+      setMsg(msg, "已保存，前台刷新即可看到更新", "ok");
+    } catch (e) {
+      setMsg(msg, "保存失败：" + (e.message || "未知错误"), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  };
 }
 
 // ---------------- 编辑器 ----------------
