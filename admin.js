@@ -122,6 +122,7 @@ async function renderApp() {
     <div style="margin-bottom:20px">
       <button class="btn" id="new-btn">＋ 写新随笔</button>
       <a class="btn btn-ghost" href="index.html" target="_blank" style="margin-left:8px">查看前台 →</a>
+      <button class="btn btn-ghost" id="cmt-btn" style="margin-left:8px">💬 评论管理</button>
     </div>
     <div class="posts-manage" id="posts-manage"><div class="empty">加载中…</div></div>`;
 
@@ -132,6 +133,8 @@ async function renderApp() {
     renderAuth();
   };
   document.getElementById("new-btn").onclick = () => renderEditor(null);
+  document.getElementById("cmt-btn").onclick = () =>
+    window.open("https://essay-blog-31967.app.workbuddy.host/?admin=1", "_blank");
 
   await loadMyPosts();
 }
@@ -261,8 +264,7 @@ function renderEditor(post) {
     </div>
 
     <div class="editor-toolbar">
-      <button class="btn btn-ghost btn-sm" id="insert-img" type="button">插入图片（可多选）</button>
-      <input type="file" id="f-img" accept="image/*" multiple style="display:none" />
+      <span class="tb-note">在下方正文区添加文字块 / 图片块，虚线框内可直接编辑，拖 ⠿ 调整顺序</span>
       <div class="spacer"></div>
       <select id="f-status" class="btn btn-ghost btn-sm" style="padding:6px 10px">
         <option value="draft" ${form.status === "draft" ? "selected" : ""}>存为草稿</option>
@@ -273,8 +275,8 @@ function renderEditor(post) {
 
     <div class="editor-grid">
       <div class="editor-pane">
-        <h3>正 文（支持 Markdown：# 标题、**加粗**、![图](地址)、> 引用、- 列表）</h3>
-        <textarea id="md-input" placeholder="在此书写你的随笔…">${escapeHtml(form.content)}</textarea>
+        <h3>正 文（块编辑：文字与图片自由穿插）</h3>
+        <div class="blocks-editor" id="blocks-editor"></div>
       </div>
       <div class="preview-pane">
         <h3>实 时 预 览</h3>
@@ -288,7 +290,6 @@ function renderEditor(post) {
   const titleEl = document.getElementById("f-title");
   const catEl = document.getElementById("f-category");
   const tagsEl = document.getElementById("f-tags");
-  const mdEl = document.getElementById("md-input");
   const previewEl = document.getElementById("preview");
   const statusEl = document.getElementById("f-status");
   const coverInput = document.getElementById("f-cover");
@@ -320,7 +321,8 @@ function renderEditor(post) {
     } catch (e) { setMsg(msg, "封面上传失败：" + (e.message || "请重试"), "err"); }
   };
 
-  // 实时预览
+  // 实时预览（由块编辑器的 onChange 驱动）
+  let previewTimer = null;
   function applyTypoToPreview() {
     // 让预览区按当前排版设置显示，所见即所得
     previewEl.style.fontSize = fsEl.value + "px";
@@ -328,8 +330,8 @@ function renderEditor(post) {
     previewEl.classList.toggle("no-indent", Number(indEl.value) === 0);
   }
   function refreshPreview() {
-    const raw = window.normalizeParagraphs
-      ? window.normalizeParagraphs(mdEl.value) : mdEl.value;
+    const md = blockEditor.getMarkdown();
+    const raw = window.normalizeParagraphs ? window.normalizeParagraphs(md) : md;
     const html = (typeof marked !== "undefined" && marked.parse)
       ? marked.parse(raw)
       : raw.replace(/</g, "&lt;").replace(/\n/g, "<br>");
@@ -338,46 +340,24 @@ function renderEditor(post) {
     applyTypoToPreview();
   }
   [fsEl, lhEl, indEl].forEach((el) => { el.onchange = applyTypoToPreview; });
-  mdEl.oninput = refreshPreview;
-  refreshPreview();
 
-  // 插入图片到正文光标处（支持一次选多张，按选择顺序逐张上传并插入）
-  const imgFile = document.getElementById("f-img");
-  document.getElementById("insert-img").onclick = () => imgFile.click();
-  imgFile.onchange = async () => {
-    const files = Array.from(imgFile.files || []);
-    if (!files.length) return;
-    // 若当前有选中文本，先删除选中内容，再在光标处插入
-    let caret = mdEl.selectionStart;
-    const selEnd = mdEl.selectionEnd;
-    if (selEnd > caret) mdEl.value = mdEl.value.slice(0, caret) + mdEl.value.slice(selEnd);
-    let inserted = 0;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setMsg(msg, `图片上传中…（${i + 1}/${files.length}）${file.name}`);
-      try {
-        const url = await uploadImage(file);
-        const alt = file.name.replace(/\.[^.]+$/, "").replace(/[\[\]]/g, "");
-        const token = `\n![${alt}](${url})\n`;
-        mdEl.value = mdEl.value.slice(0, caret) + token + mdEl.value.slice(caret);
-        caret += token.length; // 下一张接在本张之后，保持选择顺序
-        inserted++;
-      } catch (e) {
-        setMsg(msg, `《${file.name}》上传失败：${e.message || "请重试"}`, "err");
-      }
-    }
-    mdEl.focus();
-    mdEl.setSelectionRange(caret, caret);
-    refreshPreview();
-    if (inserted) setMsg(msg, `已插入 ${inserted} 张图片`, "ok");
-    imgFile.value = "";
-  };
+  // 挂载块编辑器（文字块/图片块，拖拽排序；保存时序列化回 Markdown）
+  const blockEditor = BlockEditor.mount(document.getElementById("blocks-editor"), {
+    markdown: form.content,
+    upload: (blob) => Cloud.uploadImage(blob, TOKEN),
+    token: TOKEN,
+    onChange: () => {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(refreshPreview, 300);
+    },
+  });
+  refreshPreview();
 
   // 保存
   document.getElementById("save-btn").onclick = async () => {
     const btn = document.getElementById("save-btn");
     const title = titleEl.value.trim();
-    const content = mdEl.value;
+    const content = blockEditor.getMarkdown();
     if (!title) { setMsg(msg, "请填写标题", "err"); return; }
     if (!content.trim()) { setMsg(msg, "正文不能为空", "err"); return; }
 
