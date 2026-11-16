@@ -15,7 +15,7 @@ function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}·${p(d.getMonth() + 1)}·${p(d.getDate())}`;
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function escapeHtml(s) {
@@ -67,15 +67,22 @@ function renderList() {
   essayListEl.innerHTML = posts.map((p) => {
     const tags = (p.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
     const cover = p.cover_image ? `<img class="essay-cover" src="${p.cover_image}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : "";
-    const cat = p.category ? `<span>${escapeHtml(p.category)}</span>` : "";
-    const meta = [fmtDate(p.created_at), cat].filter(Boolean).join('<span class="dot">·</span>');
+    const cat = p.category ? escapeHtml(p.category) : "";
+    const metaLeft = [fmtDate(p.created_at), cat].filter(Boolean).join('<span class="dot">·</span>');
+    // 访问量：本机 localStorage 计数，纯静态站无法统计所有访客
+    const views = window.getViewCount ? window.getViewCount(p.id) : 0;
+    const viewBadge = `<span class="view-count" title="本机访问次数">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7.5 11-7.5 11 7.5 11 7.5-4 7.5-11 7.5-11-7.5-11-7.5z"/><circle cx="12" cy="12" r="3"/></svg>${views}</span>`;
     return `
       <a class="essay" href="post.html?id=${p.id}">
         ${cover}
         <h2 class="essay-title">${escapeHtml(p.title)}</h2>
-        <div class="essay-meta">${meta}</div>
         ${p.excerpt ? `<p class="essay-excerpt">${escapeHtml(p.excerpt)}</p>` : ""}
         ${tags ? `<div class="essay-tags">${tags}</div>` : ""}
+        <div class="essay-meta">
+          <span class="meta-left">${metaLeft}</span>
+          ${viewBadge}
+        </div>
       </a>`;
   }).join("");
 }
