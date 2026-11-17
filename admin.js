@@ -315,6 +315,10 @@ async function renderSiteSettings() {
           <label>正文（支持 Markdown：空行分段、# 标题、**加粗**、![图](地址)）</label>
           <textarea id="a-content" class="set-textarea">${escapeHtml(site.about.content || "")}</textarea>
         </div>
+        <div class="field full">
+          <label>站点说明（关于我页面底部的列表，每行一条，留空则整栏隐藏）</label>
+          <textarea id="a-rules" class="set-textarea" style="min-height:130px">${escapeHtml((site.about.rules || []).join("\n"))}</textarea>
+        </div>
       </section>
 
       <div class="set-actions">
@@ -359,6 +363,7 @@ async function renderSiteSettings() {
         title: document.getElementById("a-title").value.trim() || "关于我",
         note: document.getElementById("a-note").value,
         content: document.getElementById("a-content").value,
+        rules: document.getElementById("a-rules").value.split("\n").map((t) => t.trim()).filter(Boolean),
       },
     };
     btn.disabled = true;
