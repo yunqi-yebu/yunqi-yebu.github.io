@@ -488,3 +488,38 @@ html, body { overflow-x: hidden; }
   .nav-row .nav-href { flex: 1 1 100%; }
   .set-card { padding: 18px 16px; }
 }
+
+/* ---------- 关于我：数据统计卡片 ---------- */
+.about-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin: 34px 0 8px;
+}
+.st-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: 18px 8px 14px; text-align: center;
+}
+.st-num {
+  font-family: var(--serif); font-size: 21px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.03em; line-height: 1.2;
+}
+.st-lab { font-size: 12px; color: var(--ink-faint); margin-top: 7px; letter-spacing: 0.06em; }
+.about-sep {
+  text-align: center; color: var(--ink-faint); font-size: 12px;
+  letter-spacing: 0.5em; margin: 22px 0 26px;
+}
+.about-rules {
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: 20px 24px;
+}
+.about-rules ol { margin: 0; padding-left: 22px; }
+.about-rules li {
+  font-size: 13.5px; line-height: 2.1; color: var(--ink-soft);
+}
+.about-rules li::marker { color: var(--accent-soft); font-family: var(--serif); }
+@media (max-width: 760px) {
+  .about-stats { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 26px; }
+  .st-card { padding: 14px 6px 12px; }
+  .st-num { font-size: 18px; }
+  .about-rules { padding: 16px 16px; }
+  .about-rules li { font-size: 13px; line-height: 1.95; }
+}
