@@ -255,6 +255,12 @@ const DEFAULT_SITE = {
     title: "关于我",
     note: "",
     content: "这里写一段关于你的介绍……\n\n可以介绍你的兴趣、写作方向，或者任何想对读者说的话。",
+    rules: [
+      "浏览本站无需注册登录；发表评论同样免登录，但须经博主人工确认后才会展示。",
+      "评论区内欢迎真诚交流，谢绝广告、引战及任何违法违规内容，违者一律移除。",
+      "站内文字与图片均为本人原创记录，如需引用或转载，请事先告知并注明来源。",
+      "全站内容遵循知识共享「署名—非商业性使用—禁止演绎 4.0」许可协议（CC BY-NC-ND 4.0）。",
+    ],
   },
 };
 const SITE_CACHE_KEY = "yqyb_site_cache";
@@ -265,6 +271,12 @@ function normalizeSite(raw) {
   s.nav = Array.isArray(s.nav) ? s.nav : base.nav;
   s.subNav = Array.isArray(s.subNav) ? s.subNav : base.subNav;
   s.about = Object.assign({}, DEFAULT_SITE.about, s.about || {});
+  // 站点说明列表：允许字符串数组或换行分隔的字符串，统一转为非空字符串数组
+  let rules = s.about.rules;
+  if (typeof rules === "string") rules = rules.split("\n");
+  s.about.rules = Array.isArray(rules)
+    ? rules.map((r) => String(r).trim()).filter(Boolean)
+    : DEFAULT_SITE.about.rules;
   s.nav = s.nav.filter((it) => it && (it.label || it.href));
   s.subNav = s.subNav.filter((it) => it && (it.label || it.href));
   return s;
