@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>关于我 · 云栖野步</title>
-  <link rel="stylesheet" href="style.css?v=20261117a" />
+  <link rel="stylesheet" href="style.css?v=20261117b" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="config.js?v=20261117a"></script>
-  <script src="cloud.js?v=20261117a"></script>
+  <script src="config.js?v=20261117b"></script>
+  <script src="cloud.js?v=20261117b"></script>
 </head>
 <body>
   <div class="layout">
@@ -42,13 +42,8 @@
           <div class="about-stats" id="about-stats"></div>
           <div class="about-sep" aria-hidden="true">· · · ·</div>
 
-          <section class="about-rules">
-            <ol>
-              <li>浏览本站无需注册登录；发表评论同样免登录，但须经博主人工确认后才会展示。</li>
-              <li>评论区内欢迎真诚交流，谢绝广告、引战及任何违法违规内容，违者一律移除。</li>
-              <li>站内文字与图片均为本人原创记录，如需引用或转载，请事先告知并注明来源。</li>
-              <li>全站内容遵循知识共享「署名—非商业性使用—禁止演绎 4.0」许可协议（CC BY-NC-ND 4.0）。</li>
-            </ol>
+          <section class="about-rules" id="about-rules" style="display:none">
+            <ol id="about-rules-list"></ol>
           </section>
         </article>
       </div>
@@ -80,6 +75,20 @@
         : "<p>" + raw.replace(/</g, "&lt;").replace(/\n/g, "<br>") + "</p>";
       bodyEl.innerHTML = window.protectImageHtml(html);
       if (window.markImageParagraphs) window.markImageParagraphs(bodyEl);
+      // 站点说明列表：来自站点设置（后台「站点设置 → 关于我」可编辑），空则整栏隐藏
+      const rulesSec = document.getElementById("about-rules");
+      const rulesList = document.getElementById("about-rules-list");
+      const rules = Array.isArray(about.rules) ? about.rules.filter(Boolean) : [];
+      if (rules.length) {
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[c]));
+        rulesList.innerHTML = rules.map((r) => `<li>${esc(r)}</li>`).join("");
+        rulesSec.style.display = "block";
+      } else {
+        rulesSec.style.display = "none";
+        document.querySelector(".about-sep").style.display = "none";
+      }
       await renderStats();
     }
 
