@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>关于我 · 云栖野步</title>
-  <link rel="stylesheet" href="style.css?v=20261116e" />
+  <link rel="stylesheet" href="style.css?v=20261117a" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="config.js?v=20261116e"></script>
-  <script src="cloud.js?v=20261116e"></script>
+  <script src="config.js?v=20261117a"></script>
+  <script src="cloud.js?v=20261117a"></script>
 </head>
 <body>
   <div class="layout">
@@ -38,6 +38,18 @@
             <p>这里写一段关于你的介绍……</p>
             <p>内容可在后台「⚙ 站点设置 → 关于我」中编辑并保存。</p>
           </div>
+
+          <div class="about-stats" id="about-stats"></div>
+          <div class="about-sep" aria-hidden="true">· · · ·</div>
+
+          <section class="about-rules">
+            <ol>
+              <li>浏览本站无需注册登录；发表评论同样免登录，但须经博主人工确认后才会展示。</li>
+              <li>评论区内欢迎真诚交流，谢绝广告、引战及任何违法违规内容，违者一律移除。</li>
+              <li>站内文字与图片均为本人原创记录，如需引用或转载，请事先告知并注明来源。</li>
+              <li>全站内容遵循知识共享「署名—非商业性使用—禁止演绎 4.0」许可协议（CC BY-NC-ND 4.0）。</li>
+            </ol>
+          </section>
         </article>
       </div>
 
@@ -68,6 +80,45 @@
         : "<p>" + raw.replace(/</g, "&lt;").replace(/\n/g, "<br>") + "</p>";
       bodyEl.innerHTML = window.protectImageHtml(html);
       if (window.markImageParagraphs) window.markImageParagraphs(bodyEl);
+      await renderStats();
+    }
+
+    // 数据统计卡片：从文章数据与本机访问记录自动计算
+    function fmtNum(n) {
+      return n >= 10000 ? (Math.round(n / 1000) / 10) + "万" : String(n);
+    }
+    async function renderStats() {
+      const box = document.getElementById("about-stats");
+      let posts = [];
+      try { posts = await Cloud.getPosts(); } catch (e) {}
+      posts = posts.filter((p) => p.status === "published");
+      const words = posts.reduce((s, p) => s + String(p.content || "").length, 0);
+      const imgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
+      let imgs = 0;
+      posts.forEach((p) => {
+        const m = String(p.content || "").match(imgRe);
+        imgs += (m ? m.length : 0) + (p.cover_image ? 1 : 0);
+      });
+      const tags = [...new Set(posts.flatMap((p) => p.tags || []).filter(Boolean))];
+      let days = 0;
+      if (posts.length) {
+        const t0 = Math.min(...posts.map((p) => new Date(p.created_at).getTime()).filter((t) => !isNaN(t)));
+        if (t0) days = Math.max(1, Math.floor((Date.now() - t0) / 86400000) + 1);
+      }
+      let views = 0;
+      if (window.getViewCount) posts.forEach((p) => { views += window.getViewCount(p.id); });
+
+      const cards = [
+        [fmtNum(posts.length), "文章总数"],
+        [fmtNum(words), "累计字数"],
+        [fmtNum(imgs), "图片总数"],
+        [fmtNum(tags.length), "标签总数"],
+        [fmtNum(days), "运营天数"],
+        [fmtNum(views), "本机访问"],
+      ];
+      box.innerHTML = cards.map((c) =>
+        `<div class="st-card"><div class="st-num">${c[0]}</div><div class="st-lab">${c[1]}</div></div>`
+      ).join("");
     }
     renderAbout();
   </script>
