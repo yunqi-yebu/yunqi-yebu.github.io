@@ -66,6 +66,8 @@ function renderList() {
     return;
   }
 
+  // 全量渲染所有已发布文章：不设数量上限，列数由 CSS 自适应，
+  // 当前已发布与后续新增的文章都会自动进入并列网格，无需改动代码。
   essayListEl.innerHTML = posts.map((p) => {
     const tags = (p.tags || []).map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("");
     const cover = p.cover_image ? `<img class="essay-cover" src="${p.cover_image}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : "";
@@ -78,12 +80,14 @@ function renderList() {
     return `
       <a class="essay" href="post.html?id=${p.id}">
         ${cover}
-        <h2 class="essay-title">${escapeHtml(p.title)}</h2>
-        ${p.excerpt ? `<p class="essay-excerpt">${escapeHtml(p.excerpt)}</p>` : ""}
-        ${tags ? `<div class="essay-tags">${tags}</div>` : ""}
-        <div class="essay-meta">
-          <span class="meta-left">${metaLeft}</span>
-          ${viewBadge}
+        <div class="essay-body">
+          <h2 class="essay-title">${escapeHtml(p.title)}</h2>
+          ${p.excerpt ? `<p class="essay-excerpt">${escapeHtml(p.excerpt)}</p>` : ""}
+          ${tags ? `<div class="essay-tags">${tags}</div>` : ""}
+          <div class="essay-meta">
+            <span class="meta-left">${metaLeft}</span>
+            ${viewBadge}
+          </div>
         </div>
       </a>`;
   }).join("");
