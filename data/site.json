@@ -16,12 +16,12 @@
       "href": "index.html?cat=随笔"
     },
     {
-      "label": "关于我",
-      "href": "about.html"
-    },
-    {
       "label": "风景",
       "href": "index.html"
+    },
+    {
+      "label": "关于我",
+      "href": "about.html"
     }
   ],
   "subNav": [
@@ -41,5 +41,5 @@
       "全站内容遵循知识共享「署名—非商业性使用—禁止演绎 4.0」许可协议（CC BY-NC-ND 4.0）。"
     ]
   },
-  "updated_at": "2026-11-22T10:38:54.743050Z"
+  "updated_at": "2026-11-22T12:06:33.937Z"
 }
