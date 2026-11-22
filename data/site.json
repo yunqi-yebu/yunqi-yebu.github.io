@@ -18,6 +18,10 @@
     {
       "label": "关于我",
       "href": "about.html"
+    },
+    {
+      "label": "风景",
+      "href": "index.html"
     }
   ],
   "subNav": [
