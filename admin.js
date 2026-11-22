@@ -348,17 +348,29 @@ async function renderSiteSettings() {
   document.getElementById("save-site").onclick = async () => {
     const msg = document.getElementById("site-msg");
     const btn = document.getElementById("save-site");
+    // 直接从 DOM 收集最新输入：避免中文输入法组合、行重绘竞态导致新增栏目内容丢失
+    const collect = (boxId, fallback) => {
+      const box = document.getElementById(boxId);
+      if (!box) return fallback;
+      return [...box.querySelectorAll(".nav-row")].map((row) => ({
+        label: row.querySelector(".nav-label").value,
+        href: row.querySelector(".nav-href").value,
+      }));
+    };
     // 过滤空行：名称与链接都为空的行不保存
     const clean = (arr) => arr
       .filter((x) => (x.label || "").trim() || (x.href || "").trim())
       .map((x) => ({ label: (x.label || "").trim() || "未命名", href: (x.href || "").trim() || "index.html" }));
+    const navFinal = collect("nav-editor", nav);
+    const subFinal = collect("subnav-editor", subNav);
     const payload = {
       ...site,
+      updated_at: new Date().toISOString(),
       title: document.getElementById("s-title").value.trim() || "云栖野步",
       subtitle: document.getElementById("s-sub").value,
       footer: document.getElementById("s-footer").value,
-      nav: clean(nav),
-      subNav: clean(subNav),
+      nav: clean(navFinal),
+      subNav: clean(subFinal),
       about: {
         title: document.getElementById("a-title").value.trim() || "关于我",
         note: document.getElementById("a-note").value,
@@ -372,7 +384,7 @@ async function renderSiteSettings() {
       const r = await Cloud.saveSite(payload, TOKEN, sha);
       if (r && r.content && r.content.sha) sha = r.content.sha;
       try { localStorage.setItem("yqyb_site_cache", JSON.stringify(payload)); } catch (_) {}
-      setMsg(msg, "已保存，前台刷新即可看到更新", "ok");
+      setMsg(msg, "已保存并即时同步到前台，刷新即可看到更新", "ok");
     } catch (e) {
       setMsg(msg, "保存失败：" + (e.message || "未知错误"), "err");
     } finally {
