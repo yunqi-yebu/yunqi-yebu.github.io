@@ -8,11 +8,11 @@
       "href": "index.html"
     },
     {
-      "label": "运动",
+      "label": "运动健康",
       "href": "index.html?cat=运动"
     },
     {
-      "label": "随笔",
+      "label": "心灵随笔",
       "href": "index.html?cat=随笔"
     },
     {
@@ -41,5 +41,5 @@
       "全站内容遵循知识共享「署名—非商业性使用—禁止演绎 4.0」许可协议（CC BY-NC-ND 4.0）。"
     ]
   },
-  "updated_at": "2026-11-22T12:06:33.937Z"
+  "updated_at": "2026-11-22T12:08:16.945Z"
 }
