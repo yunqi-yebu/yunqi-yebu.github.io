@@ -95,6 +95,25 @@ async function loadForWrite(token) {
   }
 }
 
+// ===== 服务端 Webhook 即时同步（发布即上线）=====
+// 后台每次保存/发布/站点设置成功后立即触发事件；服务端收到后把 Gitee 数据
+// 镜像到 GitHub Pages 仓库。事件驱动，无定时器、无轮询、无 1 小时等待。
+// fire-and-forget：同步服务不可用时静默降级，绝不阻塞或中断原有保存流程。
+function notifySync() {
+  const url = window.SYNC && window.SYNC.endpoint;
+  if (!url) return;
+  try {
+    fetch(url, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "text/plain" }, // 简单请求，避开 CORS 预检
+      body: "sync",
+      keepalive: true,                            // 页面跳转/关闭也能发出
+      cache: "no-store",
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 // 保存文章列表（覆盖写入）
 async function savePosts(posts, token, sha) {
   const body = {
@@ -103,10 +122,12 @@ async function savePosts(posts, token, sha) {
     branch: window.SITE.branch,
   };
   if (sha) body.sha = sha;
-  return giteeFetch(
+  const res = await giteeFetch(
     `/repos/${window.SITE.owner}/${window.SITE.repo}/contents/${window.SITE.dataPath}`,
     { method: "PUT", token, body }
   );
+  notifySync(); // 发布/保存成功后立即触发服务端同步
+  return res;
 }
 
 // 上传图片，返回可公开访问的直链
@@ -283,24 +304,32 @@ function normalizeSite(raw) {
 }
 
 // 公开读取站点设置（无需令牌）；失败时退回本机缓存，再退回默认值
+// 镜像与本机缓存按 updated_at 取较新者：后台刚保存、镜像尚未同步完成的几秒内，
+// 前台刷新也能立刻显示新增栏目，不会被旧镜像反向覆盖。
+function pickNewerSite(remote, cached) {
+  const ts = (s) => (s && Date.parse(s.updated_at)) || 0;
+  return ts(cached) > ts(remote) ? cached : remote;
+}
 async function getSite() {
   let cached = null;
   try { cached = JSON.parse(localStorage.getItem(SITE_CACHE_KEY) || "null"); } catch (_) {}
   // 同源镜像优先（发布通道保持同步），失败再走 Gitee，最后回退缓存/默认
   try {
     const text = await fetchSameOrigin(window.SITE.sitePath);
-    const data = text ? JSON.parse(text) : null;
+    const data = text ? JSON.parse(text.replace(/^\uFEFF/, "")) : null;
     if (data && typeof data === "object" && !Array.isArray(data)) {
-      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-      return normalizeSite(data);
+      const chosen = pickNewerSite(data, cached);
+      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(chosen)); } catch (_) {}
+      return normalizeSite(chosen);
     }
   } catch (_) {}
   try {
     const text = await fetchPublicFile(window.SITE.sitePath);
     const data = text ? JSON.parse(text.replace(/^\uFEFF/, "")) : null;
     if (data && typeof data === "object" && !Array.isArray(data)) {
-      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-      return normalizeSite(data);
+      const chosen = pickNewerSite(data, cached);
+      try { localStorage.setItem(SITE_CACHE_KEY, JSON.stringify(chosen)); } catch (_) {}
+      return normalizeSite(chosen);
     }
   } catch (_) { /* 文件不存在属正常情况 */ }
   return normalizeSite(cached || DEFAULT_SITE);
@@ -337,9 +366,13 @@ async function saveSite(site, token, sha) {
   }
   if (useSha) {
     body.sha = useSha;
-    return giteeFetch(path, { method: "PUT", token, body });
+    const res = await giteeFetch(path, { method: "PUT", token, body });
+    notifySync();
+    return res;
   }
-  return giteeFetch(path, { method: "POST", token, body });
+  const res = await giteeFetch(path, { method: "POST", token, body });
+  notifySync();
+  return res;
 }
 
 function siteEsc(s) {
